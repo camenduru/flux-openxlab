@@ -6,6 +6,7 @@ import nodes
 from nodes import NODE_CLASS_MAPPINGS
 from totoro_extras import nodes_custom_sampler
 from totoro import model_management
+import gradio as gr
 
 DualCLIPLoader = NODE_CLASS_MAPPINGS["DualCLIPLoader"]()
 UNETLoader = NODE_CLASS_MAPPINGS["UNETLoader"]()
@@ -34,19 +35,11 @@ def closestNumber(n, m):
         return n1
     return n2
 
-with torch.inference_mode():
-    positive_prompt = "black forest toast spelling out the words 'FLUX DEV', tasty, food photography, dynamic shot"
-    width = 1024
-    height = 1024
-    seed = 0
-    steps = 20
-    sampler_name = "euler"
-    scheduler = "simple"
-
+@torch.inference_mode()
+def generate(positive_prompt, width, height, seed, steps, sampler_name, scheduler):
     if seed == 0:
         seed = random.randint(0, 18446744073709551615)
     print(seed)
-
     cond, pooled = clip.encode_from_tokens(clip.tokenize(positive_prompt), return_pooled=True)
     cond = [[cond, {"pooled_output": pooled}]]
     noise = RandomNoise.get_noise(seed)[0] 
@@ -57,6 +50,23 @@ with torch.inference_mode():
     sample, sample_denoised = SamplerCustomAdvanced.sample(noise, guider, sampler, sigmas, latent_image)
     model_management.soft_empty_cache()
     decoded = VAEDecode.decode(vae, sample)[0].detach()
-    Image.fromarray(np.array(decoded*255, dtype=np.uint8)[0]).save("/content/flux.png")
+    Image.fromarray(np.array(decoded*255, dtype=np.uint8)[0]).save("/home/xlab-app-center/flux.png")
+    return "/home/xlab-app-center/flux.png"
 
-Image.fromarray(np.array(decoded*255, dtype=np.uint8)[0])
+with gr.Blocks(analytics_enabled=False) as demo:
+    with gr.Row():
+        with gr.Column():
+            positive_prompt = gr.Textbox(lines=3, interactive=True, value="cute anime girl with massive fluffy fennec ears and a big fluffy tail blonde messy long hair blue eyes wearing a maid outfit with a long black dress with a gold leaf pattern and a white apron eating a slice of an apple pie in the kitchen of an old dark victorian mansion with a bright window and very expensive stuff everywhere", label="Prompt")
+            width = gr.Slider(minimum=256, maximum=2048, value=1024, step=16, label="width")
+            height = gr.Slider(minimum=256, maximum=2048, value=1024, step=16, label="height")
+            seed = gr.Slider(minimum=0, maximum=18446744073709551615, value=0, step=1, label="seed (0=random)")
+            steps = gr.Slider(minimum=4, maximum=50, value=20, step=1, label="steps")
+            sampler_name = gr.Dropdown(["euler", "heun", "heunpp2", "heunpp2", "dpm_2", "lms", "dpmpp_2m", "ipndm", "deis", "ddim", "uni_pc", "uni_pc_bh2"], label="sampler_name", value="euler")
+            scheduler = gr.Dropdown(["normal", "sgm_uniform", "simple", "ddim_uniform"], label="scheduler", value="simple")
+            generate_button = gr.Button("Generate")
+        with gr.Column():
+            output_image = gr.Image(label="Generated image", interactive=False)
+
+    generate_button.click(fn=generate, inputs=[positive_prompt, width, height, seed, steps, sampler_name, scheduler], outputs=output_image)
+
+demo.launch(inline=False, share=False, debug=True)
