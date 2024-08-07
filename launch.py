@@ -21,8 +21,8 @@ EmptyLatentImage = NODE_CLASS_MAPPINGS["EmptyLatentImage"]()
 
 with torch.inference_mode():
     clip = DualCLIPLoader.load_clip("t5xxl_fp16.safetensors", "clip_l.safetensors", "flux")[0]
-    unet = UNETLoader.load_unet("flux1-dev.sft", "default")[0]
-    vae = VAELoader.load_vae("ae.sft")[0]
+    unet = UNETLoader.load_unet("flux1-dev.safetensors", "default")[0]
+    vae = VAELoader.load_vae("ae.safetensors")[0]
 
 def closestNumber(n, m):
     q = int(n / m)
